@@ -59,7 +59,8 @@ class TtingLiveLiveStream(BaseLiveStream):
             json_str = await async_req(play_api, proxy_addr=self.proxy_addr, headers=self.pc_headers)
             if 'HTTP Error 400: Bad Request' in json_str:
                 raise ConnectionError(
-                    "Failed to retrieve TtingLive live streaming data, please switch to a different proxy and try again."
+                    "Failed to retrieve TtingLive live streaming data, "
+                    "please switch to a different proxy and try again."
                 )
             return json.loads(json_str)
 
