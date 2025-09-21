@@ -123,6 +123,7 @@ __all__ = [
 ]
 
 __locals = locals()
+
 for __name in __all__:
     if not __name.startswith("__"):
         __locals[__name].__module__ = "streamget"
