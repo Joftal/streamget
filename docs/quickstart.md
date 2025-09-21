@@ -112,7 +112,7 @@ PandaTV -> PandaLiveStream
 猫耳FM -> MaoerLiveStream
 Look -> LookLiveStream
 WinkTV -> WinkTVLiveStream
-FlexTV -> FlexTVLiveStream
+TtingLive -> TtingLiveLiveStream
 PopkonTV -> PopkonTVLiveStream
 TwitCasting -> TwitCastingLiveStream
 百度直播 -> BaiduLiveStream

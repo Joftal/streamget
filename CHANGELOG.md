@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ## 4.0.7 (15th Aug, 2025)
 
-- Update Flextv live stream parsing.
+- Update TtingLive live stream parsing.
 
 ## 4.0.6 (12th Aug, 2025)
 

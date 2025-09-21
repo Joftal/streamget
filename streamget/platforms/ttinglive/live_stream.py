@@ -6,9 +6,9 @@ from ...requests.async_http import async_req
 from ..base import BaseLiveStream
 
 
-class FlexTVLiveStream(BaseLiveStream):
+class TtingLiveLiveStream(BaseLiveStream):
     """
-    A class for fetching and processing FlexTV live stream information.
+    A class for fetching and processing TtingLive live stream information.
     """
     def __init__(self, proxy_addr: str | None = None, cookies: str | None = None, username: str | None = None,
                  password: str | None = None):
@@ -27,7 +27,7 @@ class FlexTVLiveStream(BaseLiveStream):
             'cookie': self.cookies or '',
         }
 
-    async def login_flextv(self) -> str | None:
+    async def login_ttinglive(self) -> str | None:
         data = {
             'loginId': self.username,
             'password': self.password,
@@ -47,19 +47,19 @@ class FlexTVLiveStream(BaseLiveStream):
                 return self.cookies
             else:
                 raise Exception(
-                    "Please check if the FlexTV account and password in the configuration file are correct.")
+                    "Please check if the TtingLive account and password in the configuration file are correct.")
 
         except Exception as e:
-            raise Exception(f"FlexTV login request exception: {e}")
+            raise Exception(f"TtingLive login request exception: {e}")
 
-    async def get_flextv_stream_url(self, url: str) -> str:
+    async def get_ttinglive_stream_url(self, url: str) -> str:
         async def fetch_data() -> dict:
             user_id = url.split('/live')[0].rsplit('/', maxsplit=1)[-1]
             play_api = f'https://api.ttinglive.com/api/channels/{user_id}/stream?option=all'
             json_str = await async_req(play_api, proxy_addr=self.proxy_addr, headers=self.pc_headers)
             if 'HTTP Error 400: Bad Request' in json_str:
                 raise ConnectionError(
-                    "Failed to retrieve FlexTV live streaming data, please switch to a different proxy and try again."
+                    "Failed to retrieve TtingLive live streaming data, please switch to a different proxy and try again."
                 )
             return json.loads(json_str)
 
@@ -91,11 +91,11 @@ class FlexTVLiveStream(BaseLiveStream):
             login_need = 'message' in channel_data and '로그인후 이용이 가능합니다.' in channel_data.get('message')
             if login_need:
                 if len(self.username) < 6 or len(self.password) < 8:
-                    raise RuntimeError("FlexTV login failed! Please fill in the correct FlexTV platform account"
+                    raise RuntimeError("TtingLive login failed! Please fill in the correct TtingLive platform account"
                                        " and password in the config. ini configuration file")
-                new_cookies = await self.login_flextv()
+                new_cookies = await self.login_ttinglive()
                 if not new_cookies:
-                    raise RuntimeError("FlexTV login failed")
+                    raise RuntimeError("TtingLive login failed")
                 cookies = new_cookies if new_cookies else self.cookies
                 self.pc_headers['Cookie'] = cookies
                 html_str = await async_req(url2, proxy_addr=self.proxy_addr, headers=self.pc_headers)
@@ -108,7 +108,7 @@ class FlexTVLiveStream(BaseLiveStream):
                 anchor_id = channel_data['owner']['loginId']
                 anchor_name = f"{channel_data['owner']['nickname']}-{anchor_id}"
                 result["anchor_name"] = anchor_name
-                play_url = await self.get_flextv_stream_url(url)
+                play_url = await self.get_ttinglive_stream_url(url)
                 if play_url:
                     result['is_live'] = True
                     if '.m3u8' in play_url:
@@ -126,7 +126,7 @@ class FlexTVLiveStream(BaseLiveStream):
                 anchor_name = re.search('<meta name="twitter:title" content="(.*?)의', html_str).group(1)
                 result["anchor_name"] = anchor_name
         except Exception as e:
-            raise Exception("Failed to retrieve data from FlexTV live room", e)
+            raise Exception("Failed to retrieve data from TtingLive live room", e)
 
         result['new_cookies'] = new_cookies
         return result
@@ -136,8 +136,8 @@ class FlexTVLiveStream(BaseLiveStream):
         Fetches the stream URL for a live room and wraps it into a StreamData object.
         """
         if 'play_url_list' in json_data:
-            data = await self.get_stream_url(json_data, video_quality, spec=True, platform='FlexTV')
+            data = await self.get_stream_url(json_data, video_quality, spec=True, platform='TtingLive')
             return wrap_stream(data)
         else:
-            json_data |= {"platform": "FlexTV"}
+            json_data |= {"platform": "TtingLive"}
             return wrap_stream(json_data)

@@ -66,7 +66,7 @@ StreamData(platform='xxxx', anchor_name='xxxx', is_live=True, m3u8_url="xxx"...)
 | 猫耳FM      | ✅              | ✅           | ✅           |             |                  |
 | Look        | ✅              | ✅           | ✅           |             |                  |
 | WinkTV      | ✅              | ✅           | ❌           |             |                  |
-| FlexTV      | ✅              | ✅           | ❌           |             |                  |
+| TtingLive      | ✅              | ✅           | ❌           |             |                  |
 | PopkonTV    | ✅              | ✅           | ❌           |             |                  |
 | TwitCasting | ✅              | ✅           | ❌           |             |                  |
 | 百度直播    | ✅              | ✅           | ✅           |             |                  |

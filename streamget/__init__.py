@@ -24,7 +24,7 @@ from .platforms.chzzk.live_stream import ChzzkLiveStream
 from .platforms.douyin.live_stream import DouyinLiveStream
 from .platforms.douyu.live_stream import DouyuLiveStream
 from .platforms.faceit.live_stream import FaceitLiveStream
-from .platforms.flextv.live_stream import FlexTVLiveStream
+from .platforms.ttinglive.live_stream import TtingLiveLiveStream
 from .platforms.haixiu.live_stream import HaixiuLiveStream
 from .platforms.huajiao.live_stream import HuajiaoLiveStream
 from .platforms.huamao.live_stream import HuamaoLiveStream
@@ -76,7 +76,7 @@ __all__ = [
     "DouyinLiveStream",
     "DouyuLiveStream",
     "FaceitLiveStream",
-    "FlexTVLiveStream",
+    "TtingLiveLiveStream",
     "HaixiuLiveStream",
     "HuajiaoLiveStream",
     "HuamaoLiveStream",
