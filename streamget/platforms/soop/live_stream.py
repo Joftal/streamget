@@ -1,6 +1,7 @@
 import json
 import re
 import urllib.parse
+import uuid
 
 from ...data import StreamData, wrap_stream
 from ...requests.async_http import async_req
@@ -17,6 +18,7 @@ class SoopLiveStream(BaseLiveStream):
         self.username = username
         self.password = password
         self.pc_headers = self._get_pc_headers()
+        self.mobile_headers = self._get_mobile_headers()
 
     def _get_pc_headers(self) -> dict:
         return {
@@ -27,8 +29,16 @@ class SoopLiveStream(BaseLiveStream):
             'cookie': self.cookies or '',
         }
 
+    def _get_mobile_headers(self) -> dict:
+        return {
+            'client-id': str(uuid.uuid4()),
+            'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, '
+                          'like Gecko) Version/18.5 Mobile/15E148 Safari/604.1 Edg/141.0.0.0',
+            'cookie': self.cookies or '',
+        }
+
     async def login_sooplive(self) -> str | None:
-        if len(self.username) < 6 or len(self.password) < 10:
+        if self.username and self.password and len(self.username) < 6 or len(self.password) < 10:
             raise RuntimeError("sooplive login failed! Please enter the correct account and password for the sooplive "
                                "platform in the config.ini file.")
 
@@ -46,7 +56,7 @@ class SoopLiveStream(BaseLiveStream):
         url = 'https://login.sooplive.co.kr/app/LoginAction.php'
 
         try:
-            _, cookie_dict = await async_req(url, proxy_addr=self.proxy_addr, headers=self.pc_headers,
+            cookie_dict = await async_req(url, proxy_addr=self.proxy_addr, headers=self.pc_headers,
                                           data=data, return_cookies=True, timeout=20)
             self.cookies = '; '.join([f"{k}={v}" for k, v in cookie_dict.items()])
             self.pc_headers['cookie'] = self.cookies
@@ -102,7 +112,59 @@ class SoopLiveStream(BaseLiveStream):
             bj_id = json_data['CHANNEL']['BJID']
             return f"{bj_name}-{bj_id}", json_data['CHANNEL']['BNO']
 
-    async def fetch_web_stream_data(self, url: str, process_data: bool = False) -> dict:
+    async def _get_soop_channel_info_global(self, bj_id) -> str:
+        api = 'https://api.sooplive.com/v2/channel/info/' + str(bj_id)
+        json_str = await async_req(api, proxy_addr=self.proxy_addr, headers=self.mobile_headers)
+        json_data = json.loads(json_str)
+        nickname = json_data['data']['streamerChannelInfo']['nickname']
+        channelId = json_data['data']['streamerChannelInfo']['channelId']
+        anchor_name = f"{nickname}-{channelId}"
+        return anchor_name
+
+    async def _get_soop_stream_info_global(self, bj_id) -> tuple:
+        api = 'https://api.sooplive.com/v2/stream/info/' + str(bj_id)
+        json_str = await async_req(api, proxy_addr=self.proxy_addr, headers=self.mobile_headers)
+        json_data = json.loads(json_str)
+        status = json_data['data']['isStream']
+        title = json_data['data']['title']
+        return status, title
+
+    async def _fetch_web_stream_data_global(self, url: str, process_data: bool = True) -> dict:
+        split_url = url.split('/')
+        bj_id = split_url[3] if len(split_url) < 6 else split_url[5]
+        anchor_name = await self._get_soop_channel_info_global(bj_id)
+        result = {"anchor_name": anchor_name or '', "is_live": False, "live_url": url}
+        status, title = await self._get_soop_stream_info_global(bj_id)
+        if not status:
+            return result
+        else:
+            async def _get_url_list(m3u8: str) -> list[str]:
+                headers = {
+                    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                                  'Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
+                }
+                resp = await async_req(url=m3u8, proxy_addr=self.proxy_addr, headers=headers)
+                play_url_list = []
+                url_prefix = '/'.join(m3u8.split('/')[0:3])
+                for i in resp.split('\n'):
+                    if not i.startswith('#') and i.strip():
+                        play_url_list.append(url_prefix + i.strip())
+                bandwidth_pattern = re.compile(r'BANDWIDTH=(\d+)')
+                bandwidth_list = bandwidth_pattern.findall(resp)
+                url_to_bandwidth = {purl: int(bandwidth) for bandwidth, purl in zip(bandwidth_list, play_url_list)}
+                play_url_list = sorted(play_url_list, key=lambda purl: url_to_bandwidth[purl], reverse=True)
+                return play_url_list
+
+            m3u8_url = 'https://global-media.sooplive.com/live/' + str(bj_id) + '/master.m3u8'
+            result |= {
+                'is_live': True,
+                'title': title,
+                'm3u8_url': m3u8_url,
+                'play_url_list': await _get_url_list(m3u8_url)
+            }
+        return result
+
+    async def fetch_web_stream_data(self, url: str, process_data: bool = True) -> dict:
         """
         Fetches web stream data for a live room.
 
@@ -113,6 +175,10 @@ class SoopLiveStream(BaseLiveStream):
         Returns:
             dict: A dictionary containing anchor name, live status, room URL, and title.
         """
+
+        if "sooplive.com" in url:
+            return await self._fetch_web_stream_data_global(url, process_data)
+
         split_url = url.split('/')
         bj_id = split_url[3] if len(split_url) < 6 else split_url[5]
 
@@ -196,11 +262,17 @@ class SoopLiveStream(BaseLiveStream):
 
         if json_data['result'] == 1 and anchor_name:
             broad_no = json_data['data']['broad_no']
+            broad_title = json_data['data']['broad_title']
             hls_authentication_key = json_data['data']['hls_authentication_key']
             view_url_data = await self._get_sooplive_cdn_url(broad_no)
             view_url = view_url_data['view_url']
             m3u8_url = view_url + '?aid=' + hls_authentication_key
-            result |= {'is_live': True, 'm3u8_url': m3u8_url, 'play_url_list': await get_url_list(m3u8_url)}
+            result |= {
+                'is_live': True,
+                'title': broad_title,
+                'm3u8_url': m3u8_url,
+                'play_url_list': await get_url_list(m3u8_url)
+            }
         result['new_cookies'] = None
         return result
 
@@ -208,5 +280,5 @@ class SoopLiveStream(BaseLiveStream):
         """
         Fetches the stream URL for a live room and wraps it into a StreamData object.
         """
-        data = await self.get_stream_url(json_data, video_quality, platform='SOOP')
+        data = await self.get_stream_url(json_data, video_quality, platform='SOOP', spec=True)
         return wrap_stream(data)
